@@ -1,21 +1,21 @@
-<script lang="ts">
+<script>
   import {onMount} from 'svelte';
-  import type {Heading, ScoutField} from './types';
 
-  export let data: ScoutField[];
-  export let headings: Heading[];
+  export let data;
+  export let headings;
 
   // Support for drag and drop of table rows was heavily inspired by
   // https://htmldom.dev/drag-and-drop-table-row/
 
-  let draggingEl: HTMLTableRowElement;
-  let draggingRowIndex: number;
-  let editIndex: number;
-  let editProperty: string;
+  let draggingEl;
+  let draggingRowIndex;
   let isDraggingStarted = false;
-  let list: HTMLDivElement;
-  let placeholder: HTMLDivElement;
-  let table: HTMLTableElement;
+  let list;
+  let placeholder;
+  let table;
+  let currentElementIndex;
+  let aboveElementIndex;
+  let belowElementIndex;
 
   // holds current position of mouse relative to dragging element
   let x = 0;
@@ -46,7 +46,7 @@
 
       const newRow = document.createElement('tr');
       for (const cell of row.children) {
-        const newCell = cell.cloneNode(true) as HTMLTableCellElement;
+        const newCell = cell.cloneNode(true);
         newCell.style.width = `${parseInt(
           window.getComputedStyle(cell).width
         )}px`;
@@ -55,44 +55,16 @@
 
       newTable.appendChild(newRow);
       item.appendChild(newTable);
-      list.appendChild(item);
+      list.appendChild(item);	  
     }
   }
 
-  function deleteRow(index: number): void {
-    data.splice(index, 1);
-    data = data;
-  }
-
-  function editCell(index: number, property: string): void {
-    editIndex = index;
-    editProperty = property;
-  }
-
-  function getStyle(heading: Heading) {
+  function getStyle(heading) {
     const {width} = heading;
     return width ? `width: ${width}px` : '';
   }
 
-  const handleBlur = (event: FocusEvent) => editProperty = '';
-
-  function handleKey(event: KeyboardEvent): void {
-    const {code} = event;
-    if (code === 'Enter' || code === 'Escape') editProperty = '';
-  }
-
-  function insertRowAfter(index: number): void {
-    const item: ScoutField = {
-      scoutName: '',
-      growerName: '',
-      fieldName: '',
-      acres: 0
-    };
-    data.splice(index + 1, 0, item);
-    data = data;
-  }
-
-  function isAbove(nodeA: Element, nodeB: Element): boolean {
+  function isAbove(nodeA, nodeB) {
     // Get the bounding rectangle of nodes.
     const rectA = nodeA.getBoundingClientRect();
     const rectB = nodeB.getBoundingClientRect();
@@ -100,16 +72,16 @@
     return rectA.top + rectA.height / 2 < rectB.top + rectB.height / 2;
   }
 
-  function mouseDownHandler(e: MouseEvent): void {
+  function mouseDownHandler(e){
     // Get table row containing target.
-    const target = e.target as Element;
+    const target = e.target;
     let originalRow = target.parentNode;
     while (originalRow.nodeName !== 'TR') {
       originalRow = originalRow.parentNode;
     }
 
     const trs = Array.from(table.querySelectorAll('tr'));
-    draggingRowIndex = trs.indexOf(originalRow as HTMLTableRowElement);
+    draggingRowIndex = trs.indexOf(originalRow);
 
     // Determine mouse position.
     x = e.clientX;
@@ -120,29 +92,24 @@
     document.addEventListener('mouseup', mouseUpHandler);
   }
 
-  function mouseMoveHandler(e: MouseEvent): void {
+  function mouseMoveHandler(e) {	
     if (!isDraggingStarted) {
       isDraggingStarted = true;
 
       cloneTable();
 
-      draggingEl = list.children.item(draggingRowIndex) as HTMLTableRowElement;
+      draggingEl = list.children.item(draggingRowIndex);
       draggingEl.classList.add('dragging');
 
       placeholder = document.createElement('div');
       placeholder.classList.add('placeholder');
-      draggingEl.parentNode.insertBefore(
-        placeholder,
-        draggingEl.nextSibling
-      );
+      draggingEl.parentNode.insertBefore(placeholder, draggingEl.nextSibling);
     }
 
     // Set position for dragging element.
     draggingEl.style.position = 'absolute';
     draggingEl.style.top = `${draggingEl.offsetTop + e.clientY - y}px`;
-    draggingEl.style.left = `${
-      draggingEl.offsetLeft + e.clientX - x
-    }px`;
+    draggingEl.style.left = `${draggingEl.offsetLeft + e.clientX - x}px`;
 
     // Reassign position of mouse.
     x = e.clientX;
@@ -151,6 +118,11 @@
     // The current order is prevEle, draggingEl, placeholder, nextEle.
     const prevEle = draggingEl.previousElementSibling;
     const nextEle = placeholder.nextElementSibling;
+
+	// console.log("Previous Element");
+	// console.log(prevEle);
+	// console.log("Next Element");
+	// console.log(nextEle);
 
     // If the dragging element is above the previous element
     // and the user moves the dragging element to the top,
@@ -182,7 +154,7 @@
     }
   }
 
-  function mouseUpHandler(): void {
+  function mouseUpHandler() {
     if (!placeholder) return; // not dragging
 
     // Remove placeholder.
@@ -195,23 +167,54 @@
 
     const endRowIndex = Array.from(list.children).indexOf(draggingEl);
 
+	// console.log("endRowIndex");
+	// console.log(endRowIndex);
+	// console.log("draggingRowIndex");
+	// console.log(draggingRowIndex);
+
     isDraggingStarted = false;
 
     // Remove list element.
     list.parentNode.removeChild(list);
+	
+
 
     // Move dragged row to endRowIndex.
     const rows = Array.from(table.querySelectorAll('tr'));
-    draggingRowIndex > endRowIndex
-      ? rows[endRowIndex].parentNode.insertBefore(
+	console.log("currentElement");
+	console.log( rows[endRowIndex]);
+
+	console.log("aboveElement");
+	console.log(rows[endRowIndex - 1]);
+
+	console.log("belowElement");
+	console.log(rows[endRowIndex + 1]);
+	document.body.contains(rows[endRowIndex]);
+	currentElementIndex = (document.body.contains(rows[endRowIndex]))? rows[endRowIndex].getAttribute("state-index") : null; 
+	aboveElementIndex = (document.body.contains(rows[endRowIndex].previousSibling))? rows[endRowIndex].previousSibling.getAttribute("state-index") : null;
+	belowElementIndex = (document.body.contains(rows[endRowIndex].nextSibling))? rows[endRowIndex].nextSibling.getAttribute("state-index"): null;
+
+	// console.log("currentElementIndex");
+	// console.log(currentElementIndex);
+
+	// console.log("aboveElementIndex");
+	// console.log(aboveElementIndex);
+
+	// console.log("belowElementIndex");
+	// console.log(belowElementIndex);
+
+	if(draggingRowIndex > endRowIndex){		
+		rows[endRowIndex].parentNode.insertBefore(
           rows[draggingRowIndex],
           rows[endRowIndex]
         )
-      : rows[endRowIndex].parentNode.insertBefore(
+	}else{
+		rows[endRowIndex].parentNode.insertBefore(
           rows[draggingRowIndex],
           rows[endRowIndex].nextSibling
-        );
-
+        )
+	}
+   
     // Bring back the table.
     table.style.removeProperty('visibility');
 
@@ -220,15 +223,7 @@
     document.removeEventListener('mouseup', mouseUpHandler);
   }
 
-  function saveChange(event, index: number, property: string): void {
-    data[index][property] = event.target.value;
-    data = data;
-    if (event.target.nodeName === 'SELECT') editProperty = '';
-  }
-
-  const selectAll = (input: HTMLInputElement) => input.select();
-
-  function swapElements(elementA: Element, elementB: Element) {
+  function swapElements(elementA, elementB) {
     const siblingA =
       elementA.nextSibling === elementB ? elementA : elementA.nextSibling;
 
@@ -240,7 +235,7 @@
   }
 
   onMount(() => {
-    table.querySelectorAll('tr').forEach((row, index: number) => {
+    table.querySelectorAll('tr').forEach((row, index) => {
       // Ignore the header so the user cannot move it.
       if (index === 0) return;
 
@@ -250,6 +245,13 @@
       firstCell.addEventListener('mousedown', mouseDownHandler);
     });
   });
+
+  function getRowLexoIndex(){
+	  aboveElement = "";
+	  belowElement = "";
+	  currentElement = "between above and below";
+  }
+
 </script>
 
 <section>
@@ -259,45 +261,18 @@
         <th>Drag</th>
         {#each headings as heading}
           <th style={getStyle(heading)}>{heading.title}</th>
-        {/each}
-        <th>Actions</th>
+        {/each}        
       </tr>
     </thead>
     <tbody>
       {#each data as obj, index}
-        <tr>
+        <tr state-index={index}>
           <td class="drag">☰</td>
           {#each headings as heading}
-            <td on:dblclick={() => editCell(index, heading.property)}>
-              {#if editIndex === index && editProperty === heading.property}
-                {#if heading.getOptions}
-                  <select
-                    on:blur={e => saveChange(e, index, heading.property)}
-                    on:change={e => saveChange(e, index, heading.property)}
-                    value={obj[heading.property]}>
-                    {#each heading.getOptions() as option}
-                      <option value={option}>{option}</option>
-                    {/each}
-                  </select>
-                {:else}
-                <input
-                  on:blur={handleBlur}
-                  on:keydown={handleKey}
-                  style={getStyle(heading)}
-                  type={heading.type}
-                  use:selectAll
-                  on:change={e => saveChange(e, index, heading.property)}
-                  value={data[index][heading.property]}>
-                  {/if}
-              {:else}<span>{obj[heading.property]}</span>{/if}
+            <td>
+				{data[index][heading.property]}
             </td>
           {/each}
-          <td class="actions">
-            <button on:click={() => deleteRow(index)} title="delete">✖🗑</button>
-            <button
-              on:click={() => insertRowAfter(index)}
-              title="insert after">➕</button>
-          </td>
         </tr>
       {/each}
     </tbody>
@@ -305,21 +280,8 @@
 </section>
 
 <style>
-  .actions button {
-    background-color: transparent;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 0;
-    padding: 0 6px;
-  }
-
   .drag {
     text-align: center;
-  }
-
-  input,
-  select {
-    margin-bottom: 0;
   }
 
   section {
@@ -366,4 +328,5 @@
   section :global(tr) {
     height: var(--row-height);
   }
+
 </style>
